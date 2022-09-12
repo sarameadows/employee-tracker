@@ -28,7 +28,7 @@ const promptUser = () => {
         }
     ])
         .then(answer => {
-            switch(answer) {
+            switch(answer.choices) {
                 case "View all departments": 
                     viewDepartments();
                     break;
@@ -60,20 +60,46 @@ const promptUser = () => {
 function viewDepartments() {
     const sql = `SELECT department.id AS id, department.name AS department FROM department`;
 
-    db.promise().query(sql, (err, rows) => {
+    db.query(sql, (err, rows) => {
         if(err) throw err;
-        console.log(rows);
         console.table(rows);
         promptUser();
     });
 };
 
+// show all roles including which department
 function viewRoles() {
+    const sql = `SELECT role.id AS id, 
+    role.title AS title, 
+    role.salary AS salary,
+    department.name AS department FROM role 
+    LEFT JOIN department ON role.department_id = department.id`;
 
+    db.query(sql, (err, rows) => {
+        if(err) throw err;
+        console.table(rows);
+        promptUser();
+    });
 };
 
 function viewEmployees() {
+    const sql = `SELECT employee.id AS id, 
+    employee.first_name as "first name", 
+    employee.last_name as "last name",
+    role.title AS title, 
+    role.salary AS salary,
+    department.name AS department,
+    CONCAT (manager.first_name, " ", manager.last_name) AS manager
+    FROM employee
+    LEFT JOIN role ON employee.role_id = role.id
+    LEFT JOIN department ON role.department_id = department.id
+    LEFT JOIN employee manager ON employee.manager_id = manager.id`;
 
+    db.query(sql, (err, rows) => {
+        if(err) throw err;
+        console.table(rows);
+        promptUser();
+    });
 };
 
 function addDepartment() {
