@@ -5,7 +5,7 @@ const cTable = require('console.table');
 // start server after DB connection
 db.connect(err => {
     if(err) throw err;
-    console.log('Database connected.');
+    console.log('Company database connected.');
 });
 
 // prompt user to select what they want to do
@@ -50,7 +50,7 @@ const promptUser = () => {
                 case "Update an employee":
                     updateEmployee();
                     break;
-                case "Quit": 
+                case "Quit":
                     break;
             }
         });
@@ -114,7 +114,7 @@ function addDepartment() {
             const sql = `INSERT INTO department (name) VALUES (?)`
             const params = answer.department;
 
-            db.query(sql, params, (err, result) => {
+            db.query(sql, params, (err) => {
                 if (err) throw err;
                 viewDepartments();
             })
@@ -162,7 +162,7 @@ function addRole() {
 
                             // insert new role with params arr
                             const insertSql = `INSERT INTO role (title, salary, department_id) VALUES (?, ?, ?)`;
-                            db.query(insertSql, params, (err, result) => {
+                            db.query(insertSql, params, (err) => {
                                 if (err) throw err;
                                 viewRoles();
                             });
@@ -173,7 +173,83 @@ function addRole() {
 };
 
 function addEmployee() {
+    // prompt for first and last name
+    inquirer.prompt([
+        {
+            type: 'input',
+            name: 'first_name',
+            message: "What is the employee's first name?"
+        },
+        {
+            type: 'input',
+            name: 'last_name',
+            message: "What is the employee's last name?"
+        }
+    ])
+        .then(answer => {
+            // push first and last names to a params arr
+            const params = [answer.first_name, answer.last_name];
 
+            // get role information to display to user
+            const roleSql = `SELECT role.title FROM role`;
+            db.query(roleSql, (err, data) => {
+                if (err) throw err;
+                // turn object arr into string arr
+                const rolesArr = data.map(data => data.title);
+                // ask what the employee's role is
+                inquirer.prompt({
+                    type: 'list',
+                    name: 'title',
+                    message: "What is this employee's role?",
+                    choices: rolesArr
+                })
+                    .then(roleChoice => {
+                        // get the id of the chosen role
+                        const roleIdSql = `SELECT id FROM role WHERE title = "${roleChoice.title}"`;
+                        db.query(roleIdSql, (err, data) => {
+                            if (err) throw err;
+                            const roleId = data[0].id;
+                            // add role id to the params arr
+                            params.push(roleId);
+                        });
+                        
+                        // get manager information
+                        const managerSql = `SELECT employee.first_name, employee.last_name FROM employee`;
+                        db.query(managerSql, (err, data) => {
+                            // connect the managers' first and last name to display to user
+                            const managersArr = data.map(({ id, first_name, last_name }) => ({ id: id, name: first_name + " " + last_name}));
+                            if (err) throw err;
+                            // ask who the employee's manager is
+                            inquirer.prompt({
+                                type: 'list',
+                                name: 'manager',
+                                message: "Who at is this employee's manager?",
+                                choices: managersArr
+                            })
+                                .then(managerChoice => {
+                                    // split the first and last name of chosen manager to query for id
+                                    managerNameArr = managerChoice.manager.split(" ");
+                                    // get the id of the manager
+                                    const managerIdSql = `SELECT id FROM employee WHERE first_name = "${managerNameArr[0]}" AND last_name = "${managerNameArr[1]}"`;
+                                    db.query(managerIdSql, (err, data) => {
+                                        if (err) throw err;
+                                        // remove manager id array from object
+                                        const managerId = data.map(data => data.id);
+                                        // add department id to the params arr
+                                        params.push(managerId[0]);
+
+                                        // insert new employee with params arr
+                                        const insertSql = `INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)`;
+                                        db.query(insertSql, params, (err) => {
+                                            if (err) throw err;
+                                            viewEmployees();
+                                        });
+                                    });
+                                });
+                        });
+                    });
+            });
+        });
 };
 
 function updateEmployee() {
