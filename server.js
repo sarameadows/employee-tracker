@@ -47,10 +47,12 @@ const promptUser = () => {
                 case "Add an employee": 
                     addEmployee();
                     break;
-                case "Update an employee":
+                case "Update an employee role":
                     updateEmployee();
                     break;
                 case "Quit":
+                    console.log('Goodbye');
+                    db.end();
                     break;
             }
         });
@@ -216,9 +218,9 @@ function addEmployee() {
                         // get manager information
                         const managerSql = `SELECT employee.first_name, employee.last_name FROM employee`;
                         db.query(managerSql, (err, data) => {
-                            // connect the managers' first and last name to display to user
-                            const managersArr = data.map(({ id, first_name, last_name }) => ({ id: id, name: first_name + " " + last_name}));
                             if (err) throw err;
+                            // connect the managers' first and last name to display to user as array
+                            const managersArr = data.map(({ first_name, last_name }) => first_name + " " + last_name);
                             // ask who the employee's manager is
                             inquirer.prompt({
                                 type: 'list',
@@ -253,7 +255,71 @@ function addEmployee() {
 };
 
 function updateEmployee() {
+    // array to store employee id and role id for update
+    const params = [];
+    // to save employee's id who is being updated
+    var updateId;
 
+    // select first and last names from employee table
+    const employeeSql = `SELECT employee.first_name, employee.last_name FROM employee`;
+    db.query(employeeSql, (err, data) => {
+        if (err) throw err;
+        // combine first and last names into array of employees
+        const employeesArr = data.map(({ first_name, last_name }) => first_name + " " + last_name);
+        // ask which employee they want to update
+        inquirer.prompt({
+            type: 'list',
+            name: 'employee',
+            message: "Which employee's role do you want to update?",
+            choices: employeesArr
+        })
+            .then(employeeChoice => {
+                // split the first and last name of chosen employee to query for id
+                employeeNameArr = employeeChoice.employee.split(" ");
+                // get the id of the employee
+                const employeeIdSql = `SELECT id FROM employee WHERE first_name = "${employeeNameArr[0]}" AND last_name = "${employeeNameArr[1]}"`;
+                db.query(employeeIdSql, (err, data) => {
+                    if (err) throw err;
+                    // set updateId to reference later as param
+                    updateId = data[0].id;
+
+                    // get the role titles to display to user
+                    const roleSql = `SELECT role.title FROM role`;
+                    // ask which new title for the employee being updated
+                    db.query(roleSql, (err, data) => {
+                        console.log(data);
+                        // create array of roles to display to user
+                        const rolesArr = data.map(({title}) => title);
+                        // ask which new role for update
+                        inquirer.prompt({
+                            type: 'list',
+                            name: 'role',
+                            message: 'What role do you want to assign to the selected employee?',
+                            choices: rolesArr
+                        })
+                            .then(newRole => {
+                                // get the id of the selected role
+                                const roleIdSql = `SELECT id FROM role WHERE title = "${newRole.role}"`;
+                                db.query(roleIdSql, (err, data) => {
+                                    if(err) throw err;
+                                    const newRoleId = data[0].id;
+
+                                    // push params up for updating
+                                    params.push(newRoleId);
+                                    params.push(updateId);
+
+                                    // update employee with new role id
+                                    const updateSql = `UPDATE employee SET role_id = ? WHERE id = ?`
+                                    db.query(updateSql, params, (err) => {
+                                        if (err) throw err;
+                                        viewEmployees();
+                                    });
+                                });
+                            });
+                    });
+                });
+            });
+    });
 };
 
 promptUser();
