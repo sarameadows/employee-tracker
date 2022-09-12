@@ -287,7 +287,6 @@ function updateEmployee() {
                     const roleSql = `SELECT role.title FROM role`;
                     // ask which new title for the employee being updated
                     db.query(roleSql, (err, data) => {
-                        console.log(data);
                         // create array of roles to display to user
                         const rolesArr = data.map(({title}) => title);
                         // ask which new role for update
