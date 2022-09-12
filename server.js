@@ -82,6 +82,7 @@ function viewRoles() {
     });
 };
 
+// show all employees including their role and department info
 function viewEmployees() {
     const sql = `SELECT employee.id AS id, 
     employee.first_name as "first name", 
@@ -102,12 +103,73 @@ function viewEmployees() {
     });
 };
 
+// add a department
 function addDepartment() {
+    inquirer.prompt({
+        type: 'input',
+        name: 'department',
+        message: 'What is the name of the new department?',
+    })
+        .then(answer => {
+            const sql = `INSERT INTO department (name) VALUES (?)`
+            const params = answer.department;
 
+            db.query(sql, params, (err, result) => {
+                if (err) throw err;
+                viewDepartments();
+            })
+        });
 };
 
+// add a role and link it to a department
 function addRole() {
+    // propmpt for title and salary
+    inquirer.prompt([
+        {
+            type: 'input',
+            name: 'title',
+            message: 'What is the title of the new role?'
+        },
+        {
+            type: 'input',
+            name: 'salary',
+            message: 'What is the salary for this role?'
+        }
+    ])
+        .then(answer => {
+            // push title and salary to a params arr
+            const params = [answer.title, answer.salary];
 
+            // get department information
+            const sql = `SELECT department.id, department.name FROM department`;
+            db.query(sql, (err, data) => {
+                if (err) throw err;
+                // ask which department the role belongs to
+                inquirer.prompt({
+                    type: 'list',
+                    name: 'department',
+                    message: 'What department does this role belong to?',
+                    choices: data
+                })
+                    .then(departmentChoice => {
+                        // get the id of the department
+                        const departmentIdSql = `SELECT id FROM department WHERE name = "${departmentChoice.department}"`;
+                        db.query(departmentIdSql, (err, data) => {
+                            if (err) throw err;
+                            const departmentId = data[0].id;
+                            // add department id to the params arr
+                            params.push(departmentId);
+
+                            // insert new role with params arr
+                            const insertSql = `INSERT INTO role (title, salary, department_id) VALUES (?, ?, ?)`;
+                            db.query(insertSql, params, (err, result) => {
+                                if (err) throw err;
+                                viewRoles();
+                            });
+                        });
+                    });
+            });
+        });
 };
 
 function addEmployee() {
